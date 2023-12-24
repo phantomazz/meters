@@ -1,41 +1,22 @@
+use super::query::{Order, Query};
 use super::structs::{FieldNames, FromRow, InsertValues, TableName};
 use rusqlite::{Connection, Error};
 
-type DatabaseResult<T> = Result<T, Error>;
-type DatabaseResultNoValue = DatabaseResult<()>;
+pub type DatabaseResult<T> = Result<T, Error>;
+pub type DatabaseResultNoValue = DatabaseResult<()>;
 
 pub fn insert<T: TableName + FieldNames + InsertValues>(
     connection: &Connection,
     entry: &T,
 ) -> DatabaseResultNoValue {
-    let fields = T::get_field_names()
-        .into_iter()
-        .skip(1)
-        .collect::<Vec<&str>>()
-        .join(",");
-
-    let placeholders = (0..T::get_field_names().len() - 1)
-        .map(|x| std::format!("?{}", x + 1))
-        .collect::<Vec<String>>()
-        .join(",");
-
-    match connection.execute(
-        std::format!(
-            "INSERT INTO {} ({}) VALUES ({})",
-            T::TABLE_NAME,
-            fields,
-            placeholders
-        )
-        .as_str(),
-        entry.get_insert_values(),
-    ) {
+    match connection.execute(&Query::insert::<T>().to_string(), entry.get_insert_values()) {
         Ok(_) => Ok(()),
         Err(error) => Err(error),
     }
 }
 
 pub fn get_all<T: TableName + FromRow>(connection: &Connection) -> DatabaseResult<Vec<T>> {
-    let mut statement = connection.prepare(&std::format!("SELECT * FROM {};", T::TABLE_NAME))?;
+    let mut statement = connection.prepare(&Query::select::<T>().to_string())?;
     let result = statement
         .query_map((), |row| Ok(T::from_row(row)))?
         .map(|x| x.unwrap())
@@ -44,10 +25,12 @@ pub fn get_all<T: TableName + FromRow>(connection: &Connection) -> DatabaseResul
 }
 
 pub fn get_last<T: TableName + FromRow>(connection: &Connection) -> DatabaseResult<T> {
-    let mut statement = connection.prepare(&std::format!(
-        "SELECT * FROM {} ORDER BY id DESC LIMIT 1;",
-        T::TABLE_NAME
-    ))?;
+    let mut statement = connection.prepare(
+        &Query::select::<T>()
+            .order_by("id", Order::Descending)
+            .limit(1)
+            .to_string(),
+    )?;
     let result = statement
         .query_map((), |row| Ok(T::from_row(row)))?
         .next()

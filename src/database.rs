@@ -1,3 +1,4 @@
-mod create;
-mod ops;
-mod structs;
+pub mod create;
+pub mod ops;
+pub mod query;
+pub mod structs;
