@@ -4,6 +4,8 @@ use rusqlite::{Params, Row};
 
 const NON_EXISTENT_INDEX: u32 = 0;
 
+pub trait Named {}
+
 pub trait TableName {
     const TABLE_NAME: &'static str;
 }
@@ -44,6 +46,8 @@ pub struct MetricValue {
     pub added: NaiveDateTime,
 }
 
+impl Named for Meter {}
+
 impl Meter {
     pub fn new(name: &str) -> Self {
         Meter {
@@ -52,6 +56,8 @@ impl Meter {
         }
     }
 }
+
+impl Named for Metric {}
 
 impl Metric {
     pub fn new(name: &str, meter_id: u32, rate: u32) -> Self {
