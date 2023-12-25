@@ -23,10 +23,15 @@ struct OrderBy {
 }
 
 #[derive(Clone)]
+struct Limit {
+    limit_to: usize,
+}
+
+#[derive(Clone)]
 pub struct Select {
     query: String,
     order_info: Option<OrderBy>,
-    limit_info: Option<usize>,
+    limit_info: Option<Limit>,
 }
 
 impl Insert {
@@ -64,7 +69,7 @@ impl Select {
 
     pub fn limit(&self, limit_to: usize) -> Self {
         Select {
-            limit_info: Some(limit_to),
+            limit_info: Some(Limit { limit_to }),
             ..self.clone()
         }
     }
@@ -90,6 +95,33 @@ impl Query {
     }
 }
 
+fn option_to_string<T: Display>(value: &Option<T>) -> String {
+    match value {
+        Some(some_value) => some_value.to_string(),
+        None => "".to_string(),
+    }
+}
+
+impl Display for OrderBy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            " ORDER BY {}{}",
+            self.field,
+            match self.order {
+                Order::Ascending => "",
+                Order::Descending => " DESC",
+            }
+        )
+    }
+}
+
+impl Display for Limit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, " LIMIT {}", self.limit_to)
+    }
+}
+
 impl Display for Insert {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.query)
@@ -98,22 +130,13 @@ impl Display for Insert {
 
 impl Display for Select {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let order_by_clause = match &self.order_info {
-            Some(order_info) => std::format!(
-                " ORDER BY {}{}",
-                order_info.field,
-                match order_info.order {
-                    Order::Ascending => "",
-                    Order::Descending => " DESC",
-                }
-            ),
-            None => "".to_string(),
-        };
-        let limit_clause = match &self.limit_info {
-            Some(limit_to) => std::format!(" LIMIT {}", limit_to),
-            None => "".to_string(),
-        };
-        write!(f, "{}{}{}", self.query, order_by_clause, limit_clause)
+        write!(
+            f,
+            "{}{}{}",
+            self.query,
+            option_to_string(&self.order_info),
+            option_to_string(&self.limit_info)
+        )
     }
 }
 
