@@ -63,7 +63,7 @@ pub struct WhereActions {
 }
 
 impl WhereActions {
-    pub fn start_where<T: Display>(
+    fn start_where<T: Display>(
         select: &Select,
         field: &str,
         operator: WhereExprOperator,
