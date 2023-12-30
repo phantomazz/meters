@@ -1,5 +1,5 @@
 use super::query::{Order, Query, WhereExprOperator};
-use super::structs::{FieldNames, FromRow, InsertValues, Named, TableName};
+use super::structs::{FieldNames, FromRow, InsertValues, TableName};
 use rusqlite::{Connection, Error};
 
 pub type DatabaseResult<T> = Result<T, Error>;
@@ -34,10 +34,7 @@ impl Operations {
         }
     }
 
-    pub fn exists_by_name<T: TableName + FromRow + Named>(
-        &self,
-        name: &str,
-    ) -> DatabaseResult<bool> {
+    pub fn exists_by_name<T: TableName + FromRow>(&self, name: &str) -> DatabaseResult<bool> {
         let mut statement = self.connection.prepare(
             &Query::select::<T>()
                 .where_("name", WhereExprOperator::Equal, name)
