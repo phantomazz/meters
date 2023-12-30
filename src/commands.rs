@@ -5,7 +5,7 @@ use rusqlite::Connection;
 pub type CommandResult<T> = Result<T, String>;
 pub type CommandResultNoValue = CommandResult<()>;
 
-struct Commands {
+pub struct Commands {
     ops: Operations,
 }
 impl Commands {
