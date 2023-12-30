@@ -51,7 +51,13 @@ struct Limit {
 }
 
 #[derive(Clone)]
-pub struct Select {
+enum SelectOrDeleteMark {
+    Select,
+    Delete,
+}
+
+#[derive(Clone)]
+pub struct SelectOrDelete {
     query: String,
     order_info: Option<OrderBy>,
     limit_info: Option<Limit>,
@@ -59,18 +65,18 @@ pub struct Select {
 }
 
 pub struct WhereActions {
-    select: Select,
+    select: SelectOrDelete,
 }
 
 impl WhereActions {
     fn start_where<T: Display>(
-        select: &Select,
+        select: &SelectOrDelete,
         field: &str,
         operator: WhereExprOperator,
         value: T,
     ) -> Self {
         WhereActions {
-            select: Select {
+            select: SelectOrDelete {
                 where_info: Some(Where {
                     elements: vec![WhereElement::None(WhereExpr {
                         field: field.to_string(),
@@ -83,7 +89,7 @@ impl WhereActions {
         }
     }
 
-    pub fn stop_where(&self) -> Select {
+    pub fn stop_where(&self) -> SelectOrDelete {
         self.select.clone()
     }
 
@@ -95,7 +101,7 @@ impl WhereActions {
         new_elements.push(element);
 
         WhereActions {
-            select: Select {
+            select: SelectOrDelete {
                 where_info: Some(Where {
                     elements: new_elements,
                 }),
@@ -145,10 +151,17 @@ impl Insert {
     }
 }
 
-impl Select {
-    fn new<T: TableName>() -> Self {
-        Select {
-            query: std::format!("SELECT * FROM {}", T::TABLE_NAME),
+impl SelectOrDelete {
+    fn new<T: TableName>(which: SelectOrDeleteMark) -> Self {
+        SelectOrDelete {
+            query: std::format!(
+                "{} FROM {}",
+                match which {
+                    SelectOrDeleteMark::Select => "SELECT *",
+                    SelectOrDeleteMark::Delete => "DELETE",
+                },
+                T::TABLE_NAME
+            ),
             order_info: None,
             limit_info: None,
             where_info: None,
@@ -165,14 +178,14 @@ impl Select {
     }
 
     pub fn limit(&self, limit_to: usize) -> Self {
-        Select {
+        SelectOrDelete {
             limit_info: Some(Limit { limit_to }),
             ..self.clone()
         }
     }
 
     pub fn order_by(&self, field: &str, order: Order) -> Self {
-        Select {
+        SelectOrDelete {
             order_info: Some(OrderBy {
                 field: field.to_string(),
                 order,
@@ -187,8 +200,12 @@ impl Query {
         Insert::new::<T>()
     }
 
-    pub fn select<T: TableName>() -> Select {
-        Select::new::<T>()
+    pub fn select<T: TableName>() -> SelectOrDelete {
+        SelectOrDelete::new::<T>(SelectOrDeleteMark::Select)
+    }
+
+    pub fn delete<T: TableName>() -> SelectOrDelete {
+        SelectOrDelete::new::<T>(SelectOrDeleteMark::Delete)
     }
 }
 
@@ -283,7 +300,7 @@ impl Display for Insert {
     }
 }
 
-impl Display for Select {
+impl Display for SelectOrDelete {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -346,6 +363,41 @@ mod test {
     }
 
     #[test]
+    fn test_delete_order_and_limit() {
+        assert_eq!(Query::delete::<Meter>().to_string(), "DELETE FROM meter");
+        assert_eq!(
+            Query::delete::<Meter>()
+                .order_by("id", Order::Ascending)
+                .to_string(),
+            "DELETE FROM meter ORDER BY id"
+        );
+        assert_eq!(
+            Query::delete::<Metric>()
+                .order_by("id", Order::Descending)
+                .to_string(),
+            "DELETE FROM metric ORDER BY id DESC"
+        );
+        assert_eq!(
+            Query::delete::<Meter>().limit(123).to_string(),
+            "DELETE FROM meter LIMIT 123"
+        );
+        assert_eq!(
+            Query::delete::<Meter>()
+                .order_by("id", Order::Descending)
+                .limit(456)
+                .to_string(),
+            "DELETE FROM meter ORDER BY id DESC LIMIT 456"
+        );
+        assert_eq!(
+            Query::delete::<MetricValue>()
+                .limit(456)
+                .order_by("id", Order::Descending)
+                .to_string(),
+            "DELETE FROM metric_value ORDER BY id DESC LIMIT 456"
+        );
+    }
+
+    #[test]
     fn test_select_where() {
         assert_eq!(
             Query::select::<Meter>()
@@ -391,6 +443,51 @@ mod test {
     }
 
     #[test]
+    fn test_delete_where() {
+        assert_eq!(
+            Query::delete::<Meter>()
+                .where_("name", WhereExprOperator::Equal, "meter1")
+                .to_string(),
+            "DELETE FROM meter WHERE name = 'meter1'"
+        );
+        assert_eq!(
+            Query::delete::<Meter>()
+                .where_("id", WhereExprOperator::Equal, 123)
+                .to_string(),
+            "DELETE FROM meter WHERE id = 123"
+        );
+        assert_eq!(
+            Query::delete::<Meter>()
+                .where_("id", WhereExprOperator::Equal, 123)
+                .stop_where()
+                .to_string(),
+            "DELETE FROM meter WHERE id = 123"
+        );
+        assert_eq!(
+            Query::delete::<Meter>()
+                .where_("id", WhereExprOperator::Equal, 123)
+                .or("name", WhereExprOperator::NotEqual, "some_name")
+                .to_string(),
+            "DELETE FROM meter WHERE id = 123 OR name != 'some_name'"
+        );
+        assert_eq!(
+            Query::delete::<Meter>()
+                .where_("id", WhereExprOperator::Equal, 123)
+                .and("name", WhereExprOperator::NotEqual, "some_name")
+                .to_string(),
+            "DELETE FROM meter WHERE id = 123 AND name != 'some_name'"
+        );
+        assert_eq!(
+            Query::delete::<Meter>()
+                .where_("id", WhereExprOperator::Equal, 123)
+                .and("name", WhereExprOperator::NotEqual, "some_name")
+                .or("surname", WhereExprOperator::Equal, "some_surname")
+                .to_string(),
+            "DELETE FROM meter WHERE id = 123 AND name != 'some_name' OR surname = 'some_surname'"
+        );
+    }
+
+    #[test]
     fn test_select_complex() {
         assert_eq!(
             Query::select::<MetricValue>()
@@ -412,6 +509,31 @@ mod test {
                 .order_by("id", Order::Descending)
                 .to_string(),
             "SELECT * FROM metric_value WHERE id = 123 AND name != 'some_name' OR surname = 'some_surname' ORDER BY id DESC LIMIT 456"
+        );
+    }
+
+    #[test]
+    fn test_delete_complex() {
+        assert_eq!(
+            Query::delete::<MetricValue>()
+                .limit(456)
+                .order_by("id", Order::Descending)
+                .where_("id", WhereExprOperator::Equal, 123)
+                .and("name", WhereExprOperator::NotEqual, "some_name")
+                .or("surname", WhereExprOperator::Equal, "some_surname")
+                .to_string(),
+            "DELETE FROM metric_value WHERE id = 123 AND name != 'some_name' OR surname = 'some_surname' ORDER BY id DESC LIMIT 456"
+        );
+        assert_eq!(
+            Query::delete::<MetricValue>()
+                .where_("id", WhereExprOperator::Equal, 123)
+                .and("name", WhereExprOperator::NotEqual, "some_name")
+                .or("surname", WhereExprOperator::Equal, "some_surname")
+                .stop_where()
+                .limit(456)
+                .order_by("id", Order::Descending)
+                .to_string(),
+            "DELETE FROM metric_value WHERE id = 123 AND name != 'some_name' OR surname = 'some_surname' ORDER BY id DESC LIMIT 456"
         );
     }
 }

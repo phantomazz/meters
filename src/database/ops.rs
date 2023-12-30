@@ -34,6 +34,18 @@ impl Operations {
         }
     }
 
+    pub fn delete_by_id<T: TableName>(&self, id: u32) -> DatabaseResultNoValue {
+        match self.connection.execute(
+            &Query::delete::<T>()
+                .where_("id", WhereExprOperator::Equal, id)
+                .to_string(),
+            (),
+        ) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
     pub fn exists_by_name<T: TableName + FromRow>(&self, name: &str) -> DatabaseResult<bool> {
         let mut statement = self.connection.prepare(
             &Query::select::<T>()
@@ -177,5 +189,33 @@ mod test {
         assert!(ops.exists_by_name::<Metric>("metric1").unwrap());
         assert!(ops.exists_by_name::<Metric>("metric2").unwrap());
         assert!(!ops.exists_by_name::<Metric>("metric3").unwrap());
+    }
+    #[test]
+    fn test_delete_by_id() {
+        let ops = Operations::in_memory().unwrap();
+        create_tables_if_do_not_exist(ops.get_connection());
+
+        ops.insert(&Meter::new("meter1")).unwrap();
+        ops.insert(&Meter::new("meter2")).unwrap();
+        let meters = ops.get_all::<Meter>().unwrap();
+
+        ops.insert(&Metric::new("metric1", meters[1].id, 100))
+            .unwrap();
+        ops.insert(&Metric::new("metric2", meters[1].id, 200))
+            .unwrap();
+        let metrics = ops.get_all::<Metric>().unwrap();
+
+        assert!(ops.exists_by_name::<Meter>("meter1").unwrap());
+        assert!(ops.exists_by_name::<Meter>("meter2").unwrap());
+        assert!(ops.exists_by_name::<Metric>("metric1").unwrap());
+        assert!(ops.exists_by_name::<Metric>("metric2").unwrap());
+
+        assert!(ops.delete_by_id::<Meter>(meters[0].id).is_ok());
+        assert!(ops.delete_by_id::<Metric>(metrics[1].id).is_ok());
+
+        assert!(!ops.exists_by_name::<Meter>("meter1").unwrap());
+        assert!(ops.exists_by_name::<Meter>("meter2").unwrap());
+        assert!(ops.exists_by_name::<Metric>("metric1").unwrap());
+        assert!(!ops.exists_by_name::<Metric>("metric2").unwrap());
     }
 }
