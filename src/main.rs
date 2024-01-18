@@ -4,6 +4,10 @@ mod bot;
 mod commands;
 #[allow(dead_code)] // TODO: remove
 mod database;
+#[allow(dead_code)] // TODO: remove
+mod lang;
+
+rust_i18n::i18n!("locales");
 
 #[tokio::main]
 async fn main() {

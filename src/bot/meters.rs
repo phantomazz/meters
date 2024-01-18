@@ -5,6 +5,7 @@ use teloxide::{
 };
 
 use super::{HandlerResult, MyDialogue, SharedCommands, State};
+use rust_i18n::t;
 
 const ACTION_LIST_METERS: &str = "list_meter";
 const ACTION_ADD_METER: &str = "add_meter";
@@ -15,10 +16,10 @@ pub async fn start_manage_meters(bot: Bot, dialogue: MyDialogue, chat_id: ChatId
     dialogue.update(State::ManageMeters).await?;
     let keyboard =
         InlineKeyboardMarkup::default().append_row(vec![InlineKeyboardButton::callback(
-            "List meters",
+            t!("button.list-meters"),
             ACTION_LIST_METERS,
         )]);
-    bot.send_message(chat_id, "Managing meters")
+    bot.send_message(chat_id, t!("message.managing-meters"))
         .reply_markup(keyboard)
         .await?;
     Ok(())
@@ -54,10 +55,10 @@ pub async fn list_meters(
         Ok(found_meters) => {
             bot.send_message(
                 chat_id,
-                std::format!(
-                    "Found {} meters{}",
-                    found_meters.len(),
-                    match found_meters.len() {
+                t!(
+                    "message.found-meters",
+                    count = found_meters.len(),
+                    ending = match found_meters.len() {
                         0 => ".".to_string(),
                         _ => std::format!(
                             ": {}.",

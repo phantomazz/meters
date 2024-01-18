@@ -1,5 +1,11 @@
 mod meters;
 
+use crate::{
+    bot::meters::manage_meters_button, database::create::create_tables_if_do_not_exist, lang::LANG,
+};
+use crate::{bot::meters::start_manage_meters, commands};
+use rust_i18n::t;
+use std::sync::Arc;
 use teloxide::{
     dispatching::dialogue::{self, InMemStorage},
     handler,
@@ -7,10 +13,6 @@ use teloxide::{
     types::{InlineKeyboardButton, InlineKeyboardMarkup},
     utils::command::BotCommands,
 };
-
-use crate::{bot::meters::manage_meters_button, database::create::create_tables_if_do_not_exist};
-use crate::{bot::meters::start_manage_meters, commands};
-use std::sync::Arc;
 
 const ALLOWED_CHAT_ID1: ChatId = ChatId(67647522);
 const ALLOWED_CHAT_ID2: ChatId = ChatId(62416549);
@@ -47,6 +49,7 @@ pub async fn start() {
     pretty_env_logger::init();
     log::info!("Starting the bot...");
 
+    rust_i18n::set_locale(LANG);
     let commands = Arc::new(commands::Commands::in_memory().await.unwrap());
     create_tables_if_do_not_exist(commands.get_connection()).await;
 
@@ -83,11 +86,11 @@ async fn start_command(
     dialogue.update(State::Start).await?;
     let keyboard =
         InlineKeyboardMarkup::default().append_row(vec![InlineKeyboardButton::callback(
-            "Manage meters",
+            t!("button.manage-meters"),
             ACTION_MANAGE_METERS,
         )]);
 
-    bot.send_message(msg.chat.id, "Let's start! What would you like to do?")
+    bot.send_message(msg.chat.id, t!("message.start"))
         .reply_markup(keyboard)
         .await?;
     Ok(())
