@@ -22,13 +22,13 @@ pub trait FromRow {
     fn from_row(row: &Row) -> Self;
 }
 
-#[derive(Debug, TableName, FieldNames, InsertValues, FromRow)]
+#[derive(Debug, TableName, FieldNames, InsertValues, FromRow, Clone)]
 pub struct Meter {
     pub id: u32,
     pub name: String,
 }
 
-#[derive(Debug, TableName, FieldNames, InsertValues, FromRow)]
+#[derive(Debug, TableName, FieldNames, InsertValues, FromRow, Clone)]
 pub struct Metric {
     pub id: u32,
     pub name: String,
@@ -36,7 +36,7 @@ pub struct Metric {
     pub rate: u32,
 }
 
-#[derive(Debug, TableName, FieldNames, InsertValues, FromRow)]
+#[derive(Debug, TableName, FieldNames, InsertValues, FromRow, Clone)]
 pub struct MetricValue {
     pub id: u32,
     pub metric_id: u32,
